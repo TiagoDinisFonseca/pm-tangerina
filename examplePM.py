@@ -130,16 +130,20 @@ class Main():
 				print "\t", colored("Dim: ", "red"), d['dimension']
 				print
 
-	def printScores(self, verbose = False):
+	def printScores(self, verbose = False, error = False):
 
 		score = self.computeScores(verbose = False, optimize = True)
 		for d in score:
+			if error:
+				quality = self.qualityScore(score[d], d)
 			print "\t", colored(d, "yellow")
 			for item in score[d]:
 				if item['w'] > 0:
 					print "\t\t", colored(" %.3f" % item['w'], "green"), 
 				else:
 					print "\t\t", colored("%.3f" % item['w'], "green"),
+				if error:
+					print colored(" (%.1f)" % (100 * float(quality[item['name']]['total']) / quality[item['name']]['num']), "red"),
 				if verbose:
 					print colored(" +- %.3f" % item['e'], "yellow"),
 				print "\t", item['name']
@@ -150,8 +154,6 @@ class Main():
 		for b in scores:
 			tmp[b['name']] = {'w': b['w']}
 
-		print tmp
-
 		for d1 in tmp:
 			num = 0
 			total = 0
@@ -160,30 +162,34 @@ class Main():
 					for d2 in tmp:
 						if d2 in datum['dilemma']:
 							if tmp[d1]['w'] > tmp[d2]['w']:
-								total += (tmp[d1]['w'] - tmp[d2]['w']) * datum['dimension'][d2]
+								total += (tmp[d1]['w'] - tmp[d2]['w']) * datum['dilemma'][d2]
 							else:
-								total += (tmp[d2]['w'] - tmp[d1]['w']) * datum['dimension'][d1]
+								total += (tmp[d2]['w'] - tmp[d1]['w']) * datum['dilemma'][d1]
 					num += sum(datum['dilemma'].values())
-			tmp[b]['total'] = total
-			tmp[b]['num'] = num
+			tmp[d1]['total'] = total
+			tmp[d1]['num'] = num
 
 		return tmp
 
 	def printData(self):
 
+		copy = self.data[:]
+
 		scores = self.computeScores(verbose = False)
 		for d in scores:
 			score = scores[d]
 			print "\t", colored(d, "yellow")
-			for datum in self.data:
+			for datum in copy:
 				if datum['dimension'] == d:
 					print "\t", colored("Question:  ", "blue"), datum['name']
 					for item in datum['dilemma']:
 						print "\t\t", colored(datum['dilemma'][item], "green"), "\t", item
-					print "\t", colored("Quality:   ", "red"), "%.1f" % (100 * self.qualityDilemma(score, datum))
+					print "\t", colored("Quality:   ", "red"), "%.2f" % (100 * self.qualityDilemma(score, datum)),
+					print "\t", colored("Influence:   ", "red"), "%.2f" % (100 * self.influenceDilemma(d, score, datum))
 					print
 
 	def qualityDilemma(self, score, dilemma):
+
 		tmp = dict()
 		total = 0
 		choices = 0
@@ -201,3 +207,17 @@ class Main():
 
 		return error / (total * (choices - 1))
 
+
+	def influenceDilemma(self, dimension, score, dilemma):
+
+		self.data.remove(dilemma)
+		tmpScores = self.computeScores(verbose = False)
+		tmpScore = tmpScores[dimension]
+		self.data.append(dilemma)
+
+		tmp = 0
+		for i in score:
+			for j in tmpScore:
+				if i['name'] == j['name']:
+					tmp += (i['w'] - j['w'])**2
+		return tmp

@@ -3,14 +3,19 @@
 
 import math
 import csv
+from termcolor import colored
 
-class cluster():
+class Cluster():
 
 	global url
 	global guys
 
-	def __init__(self, url):
+	def __init__(self, url, method = 'avg'):
 		self.url = url
+		if method == 'avg' or method == 'max':
+			self.method = method
+		else: 
+			print colored("\tERROR, unknown method " + method + ". Please choose 'avg' or 'max'", "red")
 		self.readFile()
 
 	def readFile(self):
@@ -40,11 +45,16 @@ class cluster():
 		ny = len(Y)
 
 		dist = 0
-		for x in X:
-			for y in Y:
-				dist += self.distance(x, y)
-
-		return float(dist) / (nx * ny)
+		if self.method == 'avg':
+			for x in X:
+				for y in Y:
+					dist += self.distance(x, y)
+			return float(dist) / (nx * ny)
+		elif self.method == 'max':
+			for x in X:
+				for y in Y:
+					dist = max(dist, self.distance(x, y))
+			return dist
 
 	def createPockets(self):
 
@@ -76,13 +86,15 @@ class cluster():
 				break
 
 		for p in pockets:
+			print "\n\t\t", colored("-----  %d guys  -----" % len(p), "red")
 			self.showPockets(p)
+
+		print colored("\n\t\t:::::  %d pockets  :::::"%len(pockets), "green"),
 		return pockets
 
 	def showPockets(self, pocket):
 
 		for i in range(len(pocket[0])):
-			print pocket[0]
 			show = True
 			name = pocket[0][i]
 			for p in pocket:
@@ -90,6 +102,6 @@ class cluster():
 					show = False
 			if show:
 				print colored("\t%d\t"%i, "blue"), name
-			else:
-				print colored("\t%d\t"%i, "blue"), "--"
+#			else:
+#				print colored("\t%d\t"%i, "blue"), "--"
 				

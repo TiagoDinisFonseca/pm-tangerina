@@ -8,6 +8,8 @@ from termcolor import colored
 import scipy.special as special
 from scipy.optimize import minimize
 
+import clustering as Cl
+
 MINIMUM_LOG = -20
 
 class Optimization():
@@ -174,10 +176,11 @@ class Optimization():
 			prob[p] = prob[p] / total
 
 		tmp = self.getLikelyhoodFromProbabilities(dilemma, prob)
+		n = sum(dilemma.values())
 		if tmp <= 0:
-			return MINIMUM_LOG
+			return MINIMUM_LOG / n
 		else:
-			return math.log(tmp)
+			return math.log(tmp) / n
 
 	def getLikelyhoodFromProbabilities(self, dilemma, prob):
 

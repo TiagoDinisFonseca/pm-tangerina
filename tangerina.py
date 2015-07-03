@@ -10,6 +10,8 @@ import matplotlib.mlab as mlab
 import scipy.special as special
 import sys
 
+import optimization as O
+
 class Behaviours():
 	
 	global behave
@@ -359,7 +361,13 @@ class Dilemmas():
 			result[b] = random.uniform(0, 10)
 		self.classification = Classification(self.behaviours, result)
 		return self.classification
-		
+	
+	def classifyOptimization(self):	
+		tmp = self.classifyCounting()
+		score = list()
+		for u in tmp.classification:
+			score.append({'e': 0.3, 'w': u['value'], 'name': u['behaviour']})
+		print score
 
 class Classification(dict):
 
