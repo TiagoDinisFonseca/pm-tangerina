@@ -362,12 +362,22 @@ class Dilemmas():
 		self.classification = Classification(self.behaviours, result)
 		return self.classification
 	
-	def classifyOptimization(self):	
+	def classifyOptimization(self, allEquals = True):	
 		tmp = self.classifyCounting()
 		score = list()
+		answers = list()
 		for u in tmp.classification:
 			score.append({'e': 0.3, 'w': u['value'], 'name': u['behaviour']})
-		print score
+		for s in self.solutions:
+			answers.append({'dimension': 'Unique', 'name': s['dilemma'], 'dilemma': s['result']})
+		o = O.Optimization(answers, score)
+		o.setState(allEquals = allEquals)
+		r = o.minimizeLikelyhood()
+		result = dict()
+		for i in r['state_f']:
+			result[i['name']] = i['w']
+		self.classification = Classification(self.behaviours, result)
+		return self.classification
 
 class Classification(dict):
 
@@ -429,7 +439,7 @@ class Simulation():
 		self.verbose = verbose
 		self.nAnswers = nAnswers
 
-	def simulateUniqueBehavioursData(self, definitions):
+	def simulateSimple(self, definitions):
 
 		self.results = list()
 
@@ -473,21 +483,27 @@ class Simulation():
 					resultLine[definition['name']] = d.classifyCounting().computeError()
 				elif definition['classification']['method'] == 'crossTable':
 					resultLine[definition['name']] = d.classifyCrossTableSimple().computeError()
+				elif definition['classification']['method'] == 'optimization':
+					resultLine[definition['name']] = d.classifyOptimization(allEquals = True).computeError()
+				elif definition['classification']['method'] == 'optimizationEqual':
+					resultLine[definition['name']] = d.classifyOptimization(allEquals = True).computeError()
+				elif definition['classification']['method'] == 'optimizationFree':
+					resultLine[definition['name']] = d.classifyOptimization(allEquals = False).computeError()
 				elif definition['classification']['method'] == 'random':
 					resultLine[definition['name']] = d.classifyRandom().computeError()
 			result.append(resultLine)
 
 		return result	
 
-	def simulateData(self, definitions):
+	def simulateRepeated(self, definitions):
 		data = list()
 		for i in range(self.nRepetitions):
-			data.extend(self.simulateUniqueBehavioursData(definitions))
+			data.extend(self.simulateSimple(definitions))
 		return data
 
-	def simulate(self, definitions):
+	def simulationSummary(self, definitions):
 		result = dict()
-		data = self.simulateData(definitions)
+		data = self.simulateRepeated(definitions)
 		for definition in definitions:
 			result[definition['name']] = dict()
 			mean = self.getMean(data, definition['name'])
@@ -518,7 +534,7 @@ class Simulation():
 		else:
 			return 0
 
-	def makeGraphNumberAnswers(self, definitions, maxAnswers = 1000, step = 10):
+	def simulationByNumberAnswers(self, definitions, maxAnswers = 1000, step = 10):
 
 		results = list()
 		for i in range(step, maxAnswers + 1 , step):
@@ -528,7 +544,7 @@ class Simulation():
 				print colored(":", "yellow"),
 				sys.stdout.flush()
 			self.nAnswers = i
-			result = self.simulate(definitions)
+			result = self.simulationSummary(definitions)
 			results.append({'x': i, 'result': result})
 		
 		return results
@@ -545,11 +561,19 @@ class Simulation():
 		definition['visible'] = True
 		definitions.append(definition)
 
-		# pairs - cross table
+		# pairs - optimization - equal sd
 		definition = dict()
-		definition['name']	= 'cross'
+		definition['name']	= 'optimizationEqual'
 		definition['dilemmas'] = {'method': 'pairs', 'nSolutions': nSolutions}
-		definition['classification'] = {'method': 'crossTable'}
+		definition['classification'] = {'method': 'optimizationEqual'}
+		definition['visible'] = True
+		definitions.append(definition)
+
+		# pairs - optimization - free sd
+		definition = dict()
+		definition['name']	= 'optimizationFree'
+		definition['dilemmas'] = {'method': 'pairs', 'nSolutions': nSolutions}
+		definition['classification'] = {'method': 'optimizationFree'}
 		definition['visible'] = True
 		definitions.append(definition)
 
@@ -594,13 +618,13 @@ class Simulation():
 	
 		return definitions
 
-	def makeGraph(self, definitions = None, maxAnswers = 100, step = 5):
+	def makeGraphByNumberAnswers(self, definitions = None, maxAnswers = 100, step = 5):
 
 		m = 1. / math.sqrt(self.nRepetitions)
 
 		if definitions == None:
 			definitions = self.defaultDefinitions()
-		results = self.makeGraphNumberAnswers(definitions, maxAnswers = maxAnswers, step = step)
+		results = self.simulationByNumberAnswers(definitions, maxAnswers = maxAnswers, step = step)
 
 		graph = dict()
 		graph['x'] = list()
@@ -623,11 +647,11 @@ class Simulation():
 		plt.legend()
 		return plt
 
-	def getMin(self, mins, definitions = None):
+	def getMinimumNumberAnswers(self, mins, definitions = None):
 
 		if definitions == None:
 			definitions = self.defaultDefinitions(nSolutions = 3)
-		results = self.makeGraphNumberAnswers(definitions, maxAnswers = 300, step = 5)
+		results = self.simulationByNumberAnswers(definitions, maxAnswers = 300, step = 5)
 		results.reverse()
 
 		final = dict()
@@ -644,7 +668,7 @@ class Simulation():
 
 		return final
 
-	def printResultMin(self, definition, result):
+	def printMinimumNumberAnswers(self, definition, result):
 
 		print
 		for d in definition:
@@ -655,7 +679,7 @@ class Simulation():
 				print colored("\t" + i + ": ", "green"), result[r][i],
 		print
 
-	def getMinParameters(self, mins, nBehaviours, nSolutions):
+	def getMinimumNumberAnswersByParameters(self, mins, nBehaviours, nSolutions):
 
 		results = list()
 		for nS in nSolutions:
@@ -663,15 +687,14 @@ class Simulation():
 			for nB in nBehaviours:
 				if nB >= nS:
 					self.nBehaviours = nB
-					result = self.getMin(mins)
+					result = self.getMinimumNumberAnswers(mins)
 					definitions = {'nS': nS, 'nB': nB}
-					self.printResultMin(definitions, result)
+					self.printMinimumNumberAnswers(definitions, result)
 					results.append({'nBehaviours': nB, 'nSolutions': nS, 'Minimum': result})
-
 
 		return results
 
-	def getPrintResultsMinParameters(self, lines, mins):
+	def getPrintResultsMinimumNumberAnswersByParameters(self, lines, mins):
 
 		print colored("\tnS\tnB:", "red"),
 		for method in sorted(lines[0]['Minimum']):
@@ -688,223 +711,6 @@ class Simulation():
 						tmp = '--'
 					print colored("\t" + str(i) + " -", "green"), tmp,
 			print
-
-class Optimization():
-
-	global solutions
-	global behaviours
-	global firstGuess
-
-	def __init__(self, solutions, behaviours):
-		self.solutions = solutions
-		self.behaviours = behaviours
-		self.guess()
-
-	def guess(self):
-		self.firstGuess = dict()
-		for b in self.behaviours.names():
-			total = 0
-			answers = 0
-			for s in self.solutions:
-				if b in s['result']:
-					total += sum(s['result'].values())
-					answers += s['result'][b]
-			if total > 0:
-				tmp = dict()
-				tmp['weight'] = float(answers) / total
-				tmp['error'] = 0.1
-				self.firstGuess[b] = tmp
-
-	def fromListToGuess(self, x):
-		B = self.behaviours.names()
-		guess = dict()
-		guess[B[0]] = firstGuess[B[0]]
-	# ACABAR ISTO		
-
-class InverseLogic():
-
-	global solutions
-	global behaviours
-	global guess
-	global real
-
-	def __init__(self, solutions, behaviours):
-		self.solutions = solutions
-		self.behaviours = behaviours
-		self.guess = self.firstGuess()
-		self.real = self.getProbabilities()
-
-	def getError(self):
-
-		result = dict()
-		for g in self.guess:
-			result[g['name']] = g['weight']
-
-		classification = Classification(self.behaviours, result)
-		return classification.computeError()	
-
-	def getProbabilities(self):
-		results = dict()
-		for dilemma in self.solutions:
-			total = sum(dilemma['result'].values())
-			results[dilemma['dilemma']] = dict()
-			for b in dilemma['result']:
-				results[dilemma['dilemma']][b] = float(dilemma['result'][b]) / total
-		return results
-
-	def firstGuess(self):
-		B = self.behaviours.names()
-		guess = list()
-		for b in B:
-			n_choosen = 0
-			n_total = 0
-			for s in self.solutions:
-				if b in s['result']:
-					n_total += sum(s['result'].values())
-					n_choosen += s['result'][b]
-			if n_total != 0:
-				guess.append({'name': b, 'error': 0.1, 'weight': float(n_choosen) / n_total})
-
-		return guess
-
-	def probabilities(self, guess = None):
-		if guess == None:
-			guess = self.guess
-		guessProbabilities = dict()
-		for dilemma in self.real:
-			guessProbabilities[dilemma] = self.probabilityDilemma(self.real[dilemma].keys(), guess)
-		return guessProbabilities
-
-	def probabilityDilemma(self, dilemma, guess):
-		result = dict()
-		guessDict = dict()
-		for item in guess:
-			guessDict[item['name']] = {'error': item['error'], 'weight': item['weight']}
-		for b in dilemma:
-			partial = 1
-			for x in dilemma:
-				if x != b:
-					partial *= self.probabilityOneAgainstOne(guessDict[b]['weight'] - guessDict[x]['weight'], guessDict[b]['error']**2 + guessDict[x]['error']**2)
-			result[b] = partial
-		total = sum(result.values())
-		for item in result:
-			result[item] = result[item] / total
-		return result
-
-	def probabilityOneAgainstOne(self, difference, variance):
-		return 0.5 + 0.5 * special.erf(difference / math.sqrt(2 * variance))
-
-	def differenceFromReality(self, guess):
-		virtual = self.probabilities(guess)
-		total = 0
-		for d in self.real:
-			for b in self.real[d]:
-				total += (self.real[d][b] - virtual[d][b])**2
-		return total
-
-	def plotGraph(self, guess = None):
-		if guess == None:
-			guess = self.guess
-		n = 100
-		X = list()
-		Y = list()
-		for i in range(2*n, 10*n + 1):
-			guess[0]['weight'] = float(i) / n
-			X.append(float(i)/n)
-			Y.append(self.differenceFromReality(guess))
-		plt.plot(X, Y)
-		return plt
-
-	def perfectGuessError(self, i, error = 1E-5, step = 1E-3):
-		
-		item = self.guess[i]
-		gap = self.differenceFromReality(self.guess)
-
-		item['error'] += step
-		gapS = self.differenceFromReality(self.guess)
-		item['error'] -= step
-
-		item['error'] -= step
-		gapI = self.differenceFromReality(self.guess)
-		item['error'] += step
-
-		if gapI < gapS:
-			step = -step
-
-		count = 0
-		item['error'] += step
-		newGap = self.differenceFromReality(self.guess)
-		while (gap - newGap) >= error :
-			count += 1
-			gap = newGap
-			item['error'] += step
-			newGap = self.differenceFromReality(self.guess)
-			if count >= 1E3:
-				break
-		item['error'] -= step
-		return count
-
-	def perfectGuessWeight(self, i, error = 1E-5, step = 1E-3):
-		
-		item = self.guess[i]
-		gap = self.differenceFromReality(self.guess)
-
-		item['weight'] += step
-		gapS = self.differenceFromReality(self.guess)
-		item['weight'] -= step
-
-		item['weight'] -= step
-		gapI = self.differenceFromReality(self.guess)
-		item['weight'] += step
-
-		if gapI < gapS:
-			step = -step
-
-		count = 0
-		item['weight'] += step
-		newGap = self.differenceFromReality(self.guess)
-		while (gap - newGap) >= error :
-			count += 1
-			gap = newGap
-			item['weight'] += step
-			newGap = self.differenceFromReality(self.guess)
-			if count >= 1E3:
-				break
-		item['weight'] -= step
-		return count
-
-	def perfectGuess(self, error = 1E-7, step = 1E-4):
-		error = self.getError()
-		print "\tErro inicial: ", error
-		#print colored("\tInitial guess:\t", "yellow"), "%.5f" % self.differenceFromReality(self.guess) 
-		#self.printGuess()
-		n = len(self.guess)
-		for count in range(0, 100):
-			i = random.randint(0, n -1)
-			cw = self.perfectGuessWeight(i, error, step)
-			ce = self.perfectGuessError(i, error, step)
-			#print colored("\tGuess " + self.guess[i]['name'] + ":\t", "yellow"), "%.5f" % self.differenceFromReality(self.guess), colored("\t\tNumber of steps:\t", "red"), str(cw), ":", str(ce)
-			#self.printGuess()
-
-		self.printGuess
-		error = self.getError()
-		print "\tErro final: ", error
-
-	def printGuess(self):
-		for item in self.guess:
-			print colored("\t" + item['name'] + "\t", "blue" ), "%.3f" % item['weight'], "+-", "%.3f" % item['error'],
-		print
-
-	def resetGuess(self):
-		self.guess = self.firstGuess()
-
-	def getGuessBehaviours(self):
-		data = list()
-		for i in self.guess:
-			data.append([i['weight'], i['error']])	
-		b = Behaviours()
-		b.create(data)
-		return b
 
 class Counting():
 
@@ -956,19 +762,3 @@ class Counting():
 			for r in sorted(r_vector):
 				print "\t" + self.countDilemmasRepetitions(n, k, r), 
 
-class Garbage():
-
-	def main(self):
-
-		b = Behaviours()
-		b.random(5)
-		b.printBehaviours()
-
-		d = Dilemmas(b)
-		d.createWithPairs()
-
-		for i in range(50):
-			d.chooseAnswers(500)
-			s = d.solutions
-			i = InverseLogic(s, b)
-			i.perfectGuess()
