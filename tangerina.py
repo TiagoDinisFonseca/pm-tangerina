@@ -40,9 +40,15 @@ class Behaviours():
 		self.create(tmp)	
 		return
 
-	def printBehaviours(self):
-		for behaviour in self.behave:
-			print colored("\tname:", "blue"), behaviour['name'], colored("\tweight:", "blue"), round(behaviour['weight'], 1), colored("\terror:", "blue"), round(behaviour['error'], 1)
+	def printBehaviours(self, normalized = False):
+		if normalized:
+			average = sum([behaviour['weight'] for behaviour in self.behave]) / len(self.behave)
+			tmp = list()
+			for behaviour in self.behave:
+				print colored("\tname:", "blue"), behaviour['name'], colored("\tweight:", "blue"), "%.3f" % ((behaviour['weight'] - average) / 10), colored("\terror:", "blue"), "%.3f" % (behaviour['error'] / 10)
+		else:
+			for behaviour in self.behave:
+				print colored("\tname:", "blue"), behaviour['name'], colored("\tweight:", "blue"), round(behaviour['weight'], 1), colored("\terror:", "blue"), round(behaviour['error'], 1)
 
 	def number(self):
 		return len(self.behave)
@@ -362,7 +368,7 @@ class Dilemmas():
 		self.classification = Classification(self.behaviours, result)
 		return self.classification
 	
-	def classifyOptimization(self, allEquals = True):	
+	def prepareOptimization(self):
 		tmp = self.classifyCounting()
 		score = list()
 		answers = list()
@@ -370,6 +376,10 @@ class Dilemmas():
 			score.append({'e': 0.3, 'w': u['value'], 'name': u['behaviour']})
 		for s in self.solutions:
 			answers.append({'dimension': 'Unique', 'name': s['dilemma'], 'dilemma': s['result']})
+		return score, answers
+
+	def classifyOptimization(self, allEquals = True):	
+		score, answers = self.prepareOptimization()
 		o = O.Optimization(answers, score)
 		o.setState(allEquals = allEquals)
 		r = o.minimizeLikelyhood()
@@ -432,7 +442,7 @@ class Simulation():
 	global verbose
 	global nAnswers
 
-	def __init__(self, nBehaviours = 6, nRuns = 10, nRepetitions = 100, nAnswers = 20, verbose=False):
+	def __init__(self, nBehaviours = 5, nRuns = 10, nRepetitions = 100, nAnswers = 20, verbose=False):
 		self.nBehaviours = nBehaviours
 		self.nRepetitions = nRepetitions
 		self.nRuns = nRuns

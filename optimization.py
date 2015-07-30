@@ -103,7 +103,7 @@ class Optimization():
 		for i in range(n-1):
 			b.append((-1, 1))
 			if not self.allEquals:
-				b.append((0.2, 0.8))
+				b.append((0.1, 0.9))
 
 		return b
 
@@ -129,7 +129,7 @@ class Optimization():
 		r['dressed_i'] = self.getDressedLikelyhood(x)
 
 		if(verbose):
-			print colored("\tInitial: %.1f" % r['v_i'], "red")
+			print colored("\tInitial: %.2f" % r['v_i'], "red")
 			clustering = Cl.Clustering(r['state_i'])
 			clustering.getClustering(cl_max, verror = True)
 
@@ -142,8 +142,8 @@ class Optimization():
 		r['dressed_f'] = self.getDressedLikelyhood(result.x)
 
 		if verbose:
-			print colored("\tFinal: %.1f" % result.fun, "red")
-			clustering = Cl.Clustering(self.transformXinScores(result.x))
+			print colored("\tFinal: %.2f" % result.fun, "red")
+			clustering = Cl.Clustering(r['state_f'])
 			clustering.getClustering(cl_max, verror = True)
 
 		return r
@@ -177,21 +177,18 @@ class Optimization():
 
 		tmp = self.getLikelyhoodFromProbabilities(dilemma, prob)
 		n = sum(dilemma.values())
-		if tmp <= 0:
-			return MINIMUM_LOG / n
-		else:
-			return math.log(tmp) / n
+		return tmp / n
 
 	def getLikelyhoodFromProbabilities(self, dilemma, prob):
 
 		n = sum(dilemma.values())
-		product = math.factorial(n)
+		product_log = math.log(math.factorial(n))
 		for b in prob:
 			if b in dilemma:
-				product *= math.pow(prob[b], dilemma[b])
+				product_log += dilemma[b] * math.log(prob[b])
 		for b in dilemma:
-			product *= float(1) / math.factorial(dilemma[b])
-		return product
+			product_log -= math.log(math.factorial(dilemma[b]))
+		return product_log
 
 	def probabilityOneAgainstOne(self, difference, variance):
 		return 0.5 + 0.5 * special.erf(difference / math.sqrt(2 * variance))

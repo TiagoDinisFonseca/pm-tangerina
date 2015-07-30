@@ -21,9 +21,7 @@ class Main():
 		self.data = self.readData()
 		self.default_error = default_error
 
-	def computeScores(self, verbose = True, optimize = True):
-
-		dmax = 1 / (5 * self.default_error)
+	def computeScores(self, verbose = True, optimize = True, dmax = 0.5):
 
 		score = self.computeProbabilities()
 		for d in score:
